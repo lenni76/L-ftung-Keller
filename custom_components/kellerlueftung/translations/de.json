@@ -1,0 +1,92 @@
+{
+  "title": "Kellerlüftung",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Kellerlüftung einrichten",
+        "description": "Wähle die vorhandenen Sensoren und den steuerbaren Lüfter aus. Trockner sind optional; bei einem Leistungssensor gilt die in den Optionen eingestellte Leistungsschwelle.",
+        "data": {
+          "indoor_temperature": "Kellertemperatur",
+          "indoor_humidity": "Keller-Luftfeuchtigkeit",
+          "outdoor_temperature": "Außentemperatur",
+          "outdoor_humidity": "Außen-Luftfeuchtigkeit",
+          "fan_entity": "Lüfter",
+          "dryer_1": "Trockner 1 (optional)",
+          "dryer_2": "Trockner 2 (optional)"
+        },
+        "data_description": {
+          "indoor_temperature": "Temperatursensor im Kellerraum.",
+          "indoor_humidity": "Luftfeuchtesensor im Kellerraum.",
+          "outdoor_temperature": "Temperatursensor für die Außenluft.",
+          "outdoor_humidity": "Luftfeuchtesensor für die Außenluft.",
+          "fan_entity": "Schaltbare fan- oder switch-Entität des Kellerlüfters.",
+          "dryer_1": "Optionaler binary_sensor für läuft/nicht läuft oder ein Leistungssensor.",
+          "dryer_2": "Optionaler binary_sensor für läuft/nicht läuft oder ein Leistungssensor."
+        }
+      },
+      "reconfigure": {
+        "title": "Entitäten neu zuordnen",
+        "description": "Ändere die verwendeten Sensoren, Trockner oder den Lüfter.",
+        "data": {
+          "indoor_temperature": "Kellertemperatur",
+          "indoor_humidity": "Keller-Luftfeuchtigkeit",
+          "outdoor_temperature": "Außentemperatur",
+          "outdoor_humidity": "Außen-Luftfeuchtigkeit",
+          "fan_entity": "Lüfter",
+          "dryer_1": "Trockner 1 (optional)",
+          "dryer_2": "Trockner 2 (optional)"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Kellerlüftung ist bereits eingerichtet.",
+      "reconfigure_successful": "Die Entitätszuordnung wurde aktualisiert."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Regelparameter",
+        "description": "Passe die Regelung an. 0 Minuten maximale Laufzeit deaktiviert die Laufzeitbegrenzung.",
+        "data": {
+          "min_humidity": "Mindest-Kellerfeuchte",
+          "humidity_medium": "Feuchtestufe mittel",
+          "humidity_high": "Feuchtestufe hoch",
+          "delta_low": "Benötigter Feuchtevorteil bei niedriger Feuchte",
+          "delta_medium": "Benötigter Feuchtevorteil bei mittlerer Feuchte",
+          "delta_high": "Benötigter Feuchtevorteil bei hoher Feuchte",
+          "stop_delta": "Ausschaltschwelle Feuchtevorteil",
+          "dryer_bonus": "Trockner-Bonus",
+          "dryer_power_threshold": "Leistungsschwelle Trockner aktiv",
+          "min_runtime": "Mindestlaufzeit",
+          "min_pause": "Mindestpause",
+          "max_runtime": "Maximale Laufzeit (0 = aus)"
+        }
+      }
+    },
+    "error": {
+      "humidity_order": "Die Feuchtestufen müssen aufsteigend sein: Mindestfeuchte ≤ mittel ≤ hoch.",
+      "stop_delta_too_high": "Die Ausschaltschwelle muss kleiner als alle Einschalt-Schwellen sein."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "absolute_humidity_indoor": {"name": "Absolute Feuchte Keller"},
+      "absolute_humidity_outdoor": {"name": "Absolute Feuchte außen"},
+      "humidity_delta": {"name": "Entfeuchtungspotenzial"},
+      "dew_point_indoor": {"name": "Taupunkt Keller"},
+      "dew_point_outdoor": {"name": "Taupunkt außen"},
+      "required_delta": {"name": "Benötigter Feuchtevorteil"},
+      "status": {"name": "Status"},
+      "decision": {"name": "Entscheidung"}
+    },
+    "binary_sensor": {
+      "ventilation_useful": {"name": "Lüften sinnvoll"},
+      "dryer_active": {"name": "Trockner aktiv"},
+      "sensors_ok": {"name": "Sensoren in Ordnung"}
+    },
+    "select": {
+      "operating_mode": {"name": "Betriebsart"}
+    }
+  }
+}

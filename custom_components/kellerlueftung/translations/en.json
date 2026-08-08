@@ -1,0 +1,116 @@
+{
+  "title": "Basement Ventilation",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Set up basement ventilation",
+        "description": "Select the existing indoor/outdoor sensors and the controllable fan. Dryer entities are optional.",
+        "data": {
+          "indoor_temperature": "Basement temperature",
+          "indoor_humidity": "Basement humidity",
+          "outdoor_temperature": "Outdoor temperature",
+          "outdoor_humidity": "Outdoor humidity",
+          "fan_entity": "Fan",
+          "dryer_1": "Dryer 1 (optional)",
+          "dryer_2": "Dryer 2 (optional)"
+        },
+        "data_description": {
+          "indoor_temperature": "Temperatursensor im Kellerraum.",
+          "indoor_humidity": "Luftfeuchtesensor im Kellerraum.",
+          "outdoor_temperature": "Temperatursensor für die Außenluft.",
+          "outdoor_humidity": "Luftfeuchtesensor für die Außenluft.",
+          "fan_entity": "Schaltbare fan- oder switch-Entität des Kellerlüfters.",
+          "dryer_1": "Optionaler binary_sensor für läuft/nicht läuft oder ein Leistungssensor.",
+          "dryer_2": "Optionaler binary_sensor für läuft/nicht läuft oder ein Leistungssensor."
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure entities",
+        "description": "Change the sensors, dryers, or fan used by the integration.",
+        "data": {
+          "indoor_temperature": "Basement temperature",
+          "indoor_humidity": "Basement humidity",
+          "outdoor_temperature": "Outdoor temperature",
+          "outdoor_humidity": "Outdoor humidity",
+          "fan_entity": "Fan",
+          "dryer_1": "Dryer 1 (optional)",
+          "dryer_2": "Dryer 2 (optional)"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "Basement Ventilation is already configured.",
+      "reconfigure_successful": "Entity assignments were updated."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Control parameters",
+        "description": "Adjust the ventilation control. A maximum runtime of 0 minutes disables the runtime limit.",
+        "data": {
+          "min_humidity": "Minimum basement humidity",
+          "humidity_medium": "Medium humidity level",
+          "humidity_high": "High humidity level",
+          "delta_low": "Required humidity advantage at low humidity",
+          "delta_medium": "Required humidity advantage at medium humidity",
+          "delta_high": "Required humidity advantage at high humidity",
+          "stop_delta": "Humidity advantage stop threshold",
+          "dryer_bonus": "Dryer bonus",
+          "dryer_power_threshold": "Dryer active power threshold",
+          "min_runtime": "Minimum runtime",
+          "min_pause": "Minimum pause",
+          "max_runtime": "Maximum runtime (0 = disabled)"
+        }
+      }
+    },
+    "error": {
+      "humidity_order": "Humidity thresholds must be ascending: minimum ≤ medium ≤ high.",
+      "stop_delta_too_high": "The stop threshold must be lower than all start thresholds."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "absolute_humidity_indoor": {
+        "name": "Absolute humidity basement"
+      },
+      "absolute_humidity_outdoor": {
+        "name": "Absolute humidity outside"
+      },
+      "humidity_delta": {
+        "name": "Dehumidification potential"
+      },
+      "dew_point_indoor": {
+        "name": "Dew point basement"
+      },
+      "dew_point_outdoor": {
+        "name": "Dew point outside"
+      },
+      "required_delta": {
+        "name": "Required humidity advantage"
+      },
+      "status": {
+        "name": "Status"
+      },
+      "decision": {
+        "name": "Decision"
+      }
+    },
+    "binary_sensor": {
+      "ventilation_useful": {
+        "name": "Ventilation useful"
+      },
+      "dryer_active": {
+        "name": "Dryer active"
+      },
+      "sensors_ok": {
+        "name": "Sensors OK"
+      }
+    },
+    "select": {
+      "operating_mode": {
+        "name": "Operating mode"
+      }
+    }
+  }
+}

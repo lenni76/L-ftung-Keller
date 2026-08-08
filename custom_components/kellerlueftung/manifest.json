@@ -1,0 +1,15 @@
+{
+  "codeowners": [
+    "@lenni76"
+  ],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/lenni76/ha-kellerlueftung",
+  "domain": "kellerlueftung",
+  "integration_type": "helper",
+  "issue_tracker": "https://github.com/lenni76/ha-kellerlueftung/issues",
+  "name": "Kellerlüftung",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "1.0.0"
+}
