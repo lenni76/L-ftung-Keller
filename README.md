@@ -2,12 +2,14 @@
 
 Automatische, messwertbasierte Lüftungssteuerung für kühle Keller und Gewölbekeller. Die Regelung verwendet die **absolute Feuchte** innen und außen, eine Hysterese, Mindestlaufzeit/Mindestpause und optional den Betriebszustand von bis zu zwei Kondenstrocknern.
 
-> Version 1.0.0 steuert ausschließlich anhand der gemessenen Raum- und Außenluft. Eine sichere Aussage über Kondensation an der kältesten Wandoberfläche ist ohne Oberflächentemperatursensor nicht möglich.
+> Die Integration steuert ausschließlich anhand der gemessenen Raum- und Außenluft. Eine sichere Aussage über Kondensation an der kältesten Wandoberfläche ist ohne Oberflächentemperatursensor nicht möglich.
+
+Version **1.0.1** korrigiert vier priorisierte Fehler. Siehe [Änderungen](CHANGELOG.md) und [Einspielanleitung für HA OS](INSTALLATION-1.0.1.md).
 
 ## Installation
 
 ### HACS Custom Repository
-1. Repository `https://github.com/lenni76/ha-kellerlueftung` als benutzerdefiniertes Repository vom Typ **Integration** hinzufügen.
+1. Repository `https://github.com/lenni76/L-ftung-Keller` als benutzerdefiniertes Repository vom Typ **Integration** hinzufügen.
 2. **Kellerlüftung** installieren.
 3. Home Assistant neu starten.
 4. **Einstellungen → Geräte & Dienste → Integration hinzufügen → Kellerlüftung**.
@@ -56,11 +58,19 @@ Die Integration stellt Diagnose-Sensoren für absolute Feuchte, Taupunkte, Entfe
 
 ## Fail-safe
 
-Fehlt im Automatikbetrieb einer der vier Pflicht-Messwerte oder ist ein Feuchtewert unplausibel, wird der Lüfter abgeschaltet. Die manuelle Betriebsart ist eine bewusste Benutzerübersteuerung.
+Fehlt im Automatikbetrieb einer der vier Pflicht-Messwerte, ist er nicht endlich oder ist ein Feuchtewert außerhalb 0–100 %, wird die Regelung gesperrt und eine Abschaltung des Lüfters versucht. Für diese Kellerregelung wird ein Temperatur-Eingabebereich von −100 bis +100 °C akzeptiert. Werte außerhalb dieses Bereichs sowie ungültige Rechenergebnisse sperren ebenfalls die Automatik. In diesem Zustand werden keine ungültigen numerischen Diagnosewerte veröffentlicht. Die manuelle Betriebsart ist eine bewusste Benutzerübersteuerung.
+
+Die gewählte Betriebsart wird vor der ersten Regelentscheidung wiederhergestellt und ab Version 1.0.1 separat gespeichert. Beim ersten Update wird der bisherige Zustand der Betriebsart-Auswahl übernommen. Die Auswahl muss dafür aktiviert sein. Ist beim ersten Update weder eine gespeicherte Betriebsart noch eine aktive Auswahl verfügbar, bleibt die Regelung gesperrt. Nach erfolgreicher Übernahme bleibt die Betriebsart auch bei deaktivierter Auswahl erhalten.
 
 ## Entwicklung und Validierung
 
-Das Repository enthält Workflows für HACS Validation und Hassfest. Für eine Aufnahme als HACS-Standardrepository ist zusätzlich ein Eintrag im offiziellen `home-assistant/brands` Repository erforderlich.
+Die Regressionstests für die vier Korrekturen lassen sich ohne installierte HA-Laufzeit mit Python 3.12 oder neuer ausführen:
+
+```sh
+python3 -m unittest discover -s tests/standalone -v
+```
+
+Sie verwenden unveränderte Produktionsmethoden mit nachgebildeten HA-Schnittstellen. Ein vollständiger HA-Integrationstest wird dadurch nicht ersetzt.
 
 ## Lizenz
 
