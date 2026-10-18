@@ -8,6 +8,7 @@ import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.config_entries import ConfigFlowResult
+from homeassistant.core import callback
 from homeassistant.helpers.selector import (
     EntitySelector,
     EntitySelectorConfig,
@@ -130,16 +131,14 @@ class KellerlueftungConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(step_id="reconfigure", data_schema=_config_schema(dict(entry.data)))
 
     @staticmethod
+    @callback
     def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> config_entries.OptionsFlow:
         """Return options flow."""
-        return KellerlueftungOptionsFlow(config_entry)
+        return KellerlueftungOptionsFlow()
 
 
 class KellerlueftungOptionsFlow(config_entries.OptionsFlow):
     """Handle Kellerlüftung options."""
-
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        self.config_entry = config_entry
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Manage the options."""

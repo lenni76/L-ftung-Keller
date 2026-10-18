@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 import logging
+import math
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -12,6 +13,7 @@ from homeassistant.const import STATE_ON, STATE_UNAVAILABLE, STATE_UNKNOWN
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
+from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .calculations import absolute_humidity_g_m3, dew_point_c
@@ -24,9 +26,13 @@ from .const import (
     CONF_OUTDOOR_HUMIDITY,
     CONF_OUTDOOR_TEMPERATURE,
     DEFAULTS,
+    DOMAIN,
+    MAX_TEMPERATURE_C,
+    MIN_TEMPERATURE_C,
     MODE_AUTOMATIC,
     MODE_MANUAL_ON,
     MODE_OFF,
+    MODES,
     OPT_DELTA_HIGH,
     OPT_DELTA_LOW,
     OPT_DELTA_MEDIUM,
@@ -43,6 +49,11 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def mode_storage(hass: HomeAssistant, entry_id: str) -> Store[dict[str, str]]:
+    """Return config-entry-scoped storage for the selected operating mode."""
+    return Store(hass, 1, f"{DOMAIN}.{entry_id}.mode", atomic_writes=True)
 
 
 @dataclass(slots=True)
@@ -69,7 +80,10 @@ class KellerlueftungController:
         self.hass = hass
         self.entry = entry
         self.snapshot = VentilationSnapshot()
-        self.mode = MODE_AUTOMATIC
+        self.mode = MODE_OFF
+        self._mode_store = mode_storage(hass, entry.entry_id)
+        self._mode_restored = False
+        self._started = False
         self._unsubs: list[Any] = []
         self._last_on: datetime | None = None
         self._last_off: datetime | None = None
@@ -85,8 +99,26 @@ class KellerlueftungController:
         """Return configured fan/switch entity."""
         return self.entry.data[CONF_FAN_ENTITY]
 
+    @property
+    def mode_restored(self) -> bool:
+        """Return whether a valid stored or user-selected mode is available."""
+        return self._mode_restored
+
+    async def async_restore_mode(self) -> None:
+        """Load the operating mode before platforms or control are started."""
+        data = await self._mode_store.async_load()
+        if isinstance(data, dict) and data.get("mode") in MODES:
+            self.mode = data["mode"]
+            self._mode_restored = True
+
     async def async_start(self) -> None:
         """Start listeners and perform the initial evaluation."""
+        if not self._mode_restored:
+            _LOGGER.warning(
+                "Operating mode for %s could not be restored; enable the operating "
+                "mode select to initialize it. Automatic ventilation remains blocked",
+                self.entry.entry_id,
+            )
         entities = [
             self.entry.data[CONF_INDOOR_TEMPERATURE],
             self.entry.data[CONF_INDOOR_HUMIDITY],
@@ -103,10 +135,12 @@ class KellerlueftungController:
         self._unsubs.append(
             async_track_time_interval(self.hass, self._handle_interval, timedelta(minutes=1))
         )
+        self._started = True
         await self.async_evaluate()
 
     async def async_stop(self) -> None:
         """Stop listeners without changing the controlled device state."""
+        self._started = False
         for unsub in self._unsubs:
             unsub()
         self._unsubs.clear()
@@ -140,7 +174,7 @@ class KellerlueftungController:
             value = float(state.state)
         except (TypeError, ValueError):
             return None
-        return value
+        return value if math.isfinite(value) else None
 
     def _dryer_is_active(self, entity_id: str | None) -> bool:
         if not entity_id:
@@ -206,14 +240,36 @@ class KellerlueftungController:
             self._last_off = now
 
     async def async_set_mode(self, mode: str) -> None:
-        """Set operating mode and evaluate immediately."""
+        """Persist the operating mode and evaluate only after setup is complete."""
         if mode not in (MODE_AUTOMATIC, MODE_OFF, MODE_MANUAL_ON):
             raise ValueError(f"Unknown mode: {mode}")
-        self.mode = mode
-        await self.async_evaluate()
+        if not self._mode_restored or mode != self.mode:
+            await self._mode_store.async_save({"mode": mode})
+            self.mode = mode
+            self._mode_restored = True
+        if self._started:
+            await self.async_evaluate()
+
+    async def _async_block_ventilation(self, reason: str, dryer_active: bool = False) -> None:
+        """Publish invalid diagnostics and attempt automatic fail-safe shutdown."""
+        self.snapshot = VentilationSnapshot(
+            dryer_active=dryer_active, status="Gesperrt", reason=reason
+        )
+        try:
+            if self.mode != MODE_MANUAL_ON:
+                await self._async_set_fan(False)
+        finally:
+            async_dispatcher_send(self.hass, SIGNAL_UPDATE, self.entry.entry_id)
 
     async def async_evaluate(self) -> None:
         """Calculate ventilation conditions and operate the fan when required."""
+        if not self._started:
+            return
+        if not self._mode_restored:
+            await self._async_block_ventilation(
+                "Betriebsart nicht verfügbar – bitte Betriebsart-Auswahl aktivieren"
+            )
+            return
         indoor_t = self._numeric_state(self.entry.data[CONF_INDOOR_TEMPERATURE])
         indoor_rh = self._numeric_state(self.entry.data[CONF_INDOOR_HUMIDITY])
         outdoor_t = self._numeric_state(self.entry.data[CONF_OUTDOOR_TEMPERATURE])
@@ -225,30 +281,49 @@ class KellerlueftungController:
         snap = VentilationSnapshot(dryer_active=dryer_active)
         values = (indoor_t, indoor_rh, outdoor_t, outdoor_rh)
         if any(value is None for value in values):
-            snap.status = "Gesperrt"
-            snap.reason = "Mindestens ein benötigter Temperatur- oder Feuchtesensor ist nicht verfügbar"
-            self.snapshot = snap
-            if self.mode != MODE_MANUAL_ON:
-                await self._async_set_fan(False)
-            async_dispatcher_send(self.hass, SIGNAL_UPDATE, self.entry.entry_id)
+            await self._async_block_ventilation(
+                "Mindestens ein benötigter Temperatur- oder Feuchtesensor ist nicht verfügbar oder ungültig",
+                dryer_active,
+            )
             return
 
         assert indoor_t is not None and indoor_rh is not None and outdoor_t is not None and outdoor_rh is not None
         if not (0.0 <= indoor_rh <= 100.0 and 0.0 <= outdoor_rh <= 100.0):
-            snap.status = "Gesperrt"
-            snap.reason = "Unplausibler Luftfeuchtewert außerhalb 0–100 %"
-            self.snapshot = snap
-            if self.mode != MODE_MANUAL_ON:
-                await self._async_set_fan(False)
-            async_dispatcher_send(self.hass, SIGNAL_UPDATE, self.entry.entry_id)
+            await self._async_block_ventilation(
+                "Unplausibler Luftfeuchtewert außerhalb 0–100 %", dryer_active
+            )
+            return
+
+        if not (
+            MIN_TEMPERATURE_C <= indoor_t <= MAX_TEMPERATURE_C
+            and MIN_TEMPERATURE_C <= outdoor_t <= MAX_TEMPERATURE_C
+        ):
+            await self._async_block_ventilation(
+                f"Unplausibler Temperaturwert außerhalb {MIN_TEMPERATURE_C:g}–{MAX_TEMPERATURE_C:g} °C",
+                dryer_active,
+            )
+            return
+
+        try:
+            indoor_ah = absolute_humidity_g_m3(indoor_t, indoor_rh)
+            outdoor_ah = absolute_humidity_g_m3(outdoor_t, outdoor_rh)
+            delta = indoor_ah - outdoor_ah
+            indoor_dp = dew_point_c(indoor_t, indoor_rh)
+            outdoor_dp = dew_point_c(outdoor_t, outdoor_rh)
+            if not all(math.isfinite(value) for value in (indoor_ah, outdoor_ah, delta, indoor_dp, outdoor_dp)):
+                raise ValueError("Non-finite humidity or dew point calculation")
+        except (ArithmeticError, ValueError):
+            await self._async_block_ventilation(
+                "Feuchte oder Taupunkt konnten nicht gültig berechnet werden", dryer_active
+            )
             return
 
         snap.sensors_ok = True
-        snap.indoor_absolute_humidity = absolute_humidity_g_m3(indoor_t, indoor_rh)
-        snap.outdoor_absolute_humidity = absolute_humidity_g_m3(outdoor_t, outdoor_rh)
-        snap.humidity_delta = snap.indoor_absolute_humidity - snap.outdoor_absolute_humidity
-        snap.indoor_dew_point = dew_point_c(indoor_t, indoor_rh)
-        snap.outdoor_dew_point = dew_point_c(outdoor_t, outdoor_rh)
+        snap.indoor_absolute_humidity = indoor_ah
+        snap.outdoor_absolute_humidity = outdoor_ah
+        snap.humidity_delta = delta
+        snap.indoor_dew_point = indoor_dp
+        snap.outdoor_dew_point = outdoor_dp
         snap.required_delta = self._required_delta(indoor_rh, dryer_active)
 
         fan_on = self._fan_is_on()

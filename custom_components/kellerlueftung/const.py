@@ -6,7 +6,11 @@ from homeassistant.const import Platform
 
 DOMAIN = "kellerlueftung"
 NAME = "Kellerlüftung"
-VERSION = "1.0.0"
+VERSION = "1.0.1"
+
+# Accepted input range for this basement ventilation controller, in °C.
+MIN_TEMPERATURE_C = -100.0
+MAX_TEMPERATURE_C = 100.0
 
 PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.SELECT]
 

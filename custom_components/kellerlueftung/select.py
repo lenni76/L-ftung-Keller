@@ -27,19 +27,23 @@ class KellerModeSelect(KellerlueftungEntity, SelectEntity, RestoreEntity):
     def __init__(self, entry: KellerlueftungConfigEntry) -> None:
         super().__init__(entry)
         self._attr_unique_id = f"{entry.entry_id}_operating_mode"
-        self._attr_current_option = MODE_AUTOMATIC
+        self._attr_current_option = self.controller.mode
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
-        previous = await self.async_get_last_state()
-        if previous and previous.state in MODES:
-            self._attr_current_option = previous.state
-            await self.controller.async_set_mode(previous.state)
+        # Migrate the previous RestoreEntity state once. The controller's own
+        # persisted mode is authoritative on subsequent starts, even if this
+        # select entity was disabled or renamed in the meantime.
+        if not self.controller.mode_restored:
+            previous = await self.async_get_last_state()
+            mode = previous.state if previous and previous.state in MODES else MODE_AUTOMATIC
+            await self.controller.async_set_mode(mode)
+        self._attr_current_option = self.controller.mode
 
     async def async_select_option(self, option: str) -> None:
         """Change operating mode."""
         if option not in MODES:
             raise ValueError(f"Unsupported option: {option}")
-        self._attr_current_option = option
         await self.controller.async_set_mode(option)
+        self._attr_current_option = option
         self.async_write_ha_state()

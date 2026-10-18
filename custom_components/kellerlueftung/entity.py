@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from homeassistant.core import callback
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import Entity
@@ -28,6 +29,7 @@ class KellerlueftungEntity(Entity):
 
     async def async_added_to_hass(self) -> None:
         """Subscribe to controller updates."""
+        await super().async_added_to_hass()
         self.async_on_remove(
             async_dispatcher_connect(
                 self.hass,
@@ -36,6 +38,7 @@ class KellerlueftungEntity(Entity):
             )
         )
 
+    @callback
     def _handle_controller_update(self, entry_id: str) -> None:
         if entry_id == self.entry.entry_id:
             self.async_write_ha_state()
